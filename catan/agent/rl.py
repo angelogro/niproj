@@ -40,7 +40,8 @@ class DeepQNetwork:
             list_num_neurons= (50,50),
             activation_function = 'relu',
             loss_function = 'mse',
-            optimizer_function = 'gradient'
+            optimizer_function = 'gradient',
+            dropout_prob = 0.2
     ):
         # Initialize the params passed from run_this file
         self.summaries_dir = 'Summaries'
@@ -49,14 +50,14 @@ class DeepQNetwork:
         self.n_features = n_features
         self.lr = tf.Variable(learning_rate, trainable=False,dtype=tf.float64)
         self.gamma = reward_decay
-        self.epsilon_max = e_greedy
         self.replace_target_iter = replace_target_iter
         self.memory_size = memory_size
         self.batch_size = batch_size
         self.epsilon_increment = e_greedy_increment
         self.softmax_choice = softmax_choice
-        self.epsilon = 0 if e_greedy_increment is not None else self.epsilon_max
+        self.epsilon = 0 if e_greedy_increment is not None else e_greedy
         self.learn_step_counter = 0
+        self.dropout_prob = dropout_prob
         # initialize zero memory [s, a, r, s_]
         self.memory = np.zeros((self.memory_size, n_features * 2 + 2))
         self.list_num_neurons = list_num_neurons
@@ -137,7 +138,7 @@ class DeepQNetwork:
                     self.l1 = activation_function(tf.matmul(self.s, self.w1) + self.b1)
                 else:
                     self.l1 = activation_function(tf.matmul(self.s, self.w1))
-
+                self.dropout1 = tf.nn.dropout(self.l1, rate = self.dropout_prob)
             for layer_num in range(len(list_num_neurons)-1):
 
                 # hidden layers. collections is used later when assign to target net
@@ -147,13 +148,14 @@ class DeepQNetwork:
                     if with_bias:
                         setattr(self,''.join(['b',str(layer_num+2)]) , tf.get_variable(''.join(['b',str(layer_num+2)]), [1, list_num_neurons[layer_num+1]],
                                                                               initializer=w_initializer, collections=c_names))
-                        setattr(self,''.join(['l',str(layer_num+2)]) , activation_function(tf.matmul(getattr(self, ''.join(['l',str(layer_num+1)])),
+                        setattr(self,''.join(['l',str(layer_num+2)]) , activation_function(tf.matmul(getattr(self, ''.join(['dropout',str(layer_num+1)])),
                                                                                            getattr(self,''.join(['w',str(layer_num+2)])))+ getattr(self,''.join(['b',str(layer_num+2)]))))
                     else:
-                        setattr(self,''.join(['l',str(layer_num+2)]) , activation_function(tf.matmul(getattr(self, ''.join(['l',str(layer_num+1)])),
+                        setattr(self,''.join(['l',str(layer_num+2)]) , activation_function(tf.matmul(getattr(self, ''.join(['dropout',str(layer_num+1)])),
                                                                                                      getattr(self,''.join(['w',str(layer_num+2)])))))
+                    setattr(self,''.join(['dropout',str(layer_num+2)]) , tf.nn.dropout(getattr(self, ''.join(['l',str(layer_num+2)])),rate = self.dropout_prob))
 
-            self.q_eval = getattr(self,''.join(['l',str(amount_layers+1)]))
+            self.q_eval = getattr(self,''.join(['dropout',str(amount_layers+1)]))
 
 
         with tf.variable_scope('loss'):
@@ -179,6 +181,7 @@ class DeepQNetwork:
                     self.lt1 = activation_function(tf.matmul(self.s_, self.wt1) + self.b1)
                 else:
                     self.lt1 = activation_function(tf.matmul(self.s_, self.wt1))# + self.b1)
+                self.dropoutt1 = tf.nn.dropout(self.lt1, rate = self.dropout_prob)
 
             for layer_num in range(len(list_num_neurons)-1):
 
@@ -189,12 +192,14 @@ class DeepQNetwork:
                     if with_bias:
                         setattr(self,''.join(['bt',str(layer_num+2)]) , tf.get_variable(''.join(['b',str(layer_num+2)]), [1, list_num_neurons[layer_num+1]],
                                                                                    initializer=w_initializer, collections=c_names))
-                        setattr(self,''.join(['lt',str(layer_num+2)]) , activation_function(tf.matmul(getattr(self, ''.join(['lt',str(layer_num+1)])),
-                                                                                        getattr(self,''.join(['wt',str(layer_num+2)]))) + getattr(self,''.join(['bt',str(layer_num+2)]))))
+                        setattr(self,''.join(['lt',str(layer_num+2)]) , activation_function(tf.matmul(getattr(self, ''.join(['dropoutt',str(layer_num+1)])),
+                                                                                           getattr(self,''.join(['wt',str(layer_num+2)])))+ getattr(self,''.join(['b',str(layer_num+2)]))))
                     else:
-                        setattr(self,''.join(['lt',str(layer_num+2)]) , activation_function(tf.matmul(getattr(self, ''.join(['lt',str(layer_num+1)])),
-                                                                                                      getattr(self,''.join(['wt',str(layer_num+2)])))))
-            self.q_next = getattr(self,''.join(['lt',str(amount_layers+1)]))
+                        setattr(self,''.join(['lt',str(layer_num+2)]) , activation_function(tf.matmul(getattr(self, ''.join(['dropoutt',str(layer_num+1)])),
+                                                                                                     getattr(self,''.join(['wt',str(layer_num+2)])))))
+                    setattr(self,''.join(['dropoutt',str(layer_num+2)]) , tf.nn.dropout(getattr(self, ''.join(['lt',str(layer_num+2)])),rate = self.dropout_prob))
+                    
+            self.q_next = getattr(self,''.join(['dropoutt',str(amount_layers+1)]))
 
 
         # Name scope allows you to group various summaries together

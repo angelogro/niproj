@@ -10,9 +10,10 @@ from game.hex_tiles import HexTiles
 from game import defines
 
 
+
 class Game:
 	"""
-    A class describng a Catan game
+    A class describing a Catan game
 
     ...
 
@@ -68,8 +69,84 @@ class Game:
 
     Methods
     -------
-    says(sound=None)
-        Prints the animals name and what sound it makes
+    next_players_turn()
+        Counts the player number up by one and rolls the dices
+    get_possible_action_do_nothing()
+        Returns a 1 if skipping the turn is allowed and a 0 otherwise (e.g. when you HAVE to move the robber)
+    step(action)
+        Make a game step by taking the action
+    get_possible_actions(player_num)
+        Concatenates and return all possible actions of the given player.
+    take_action(chosen_action_ind,player_num)
+        Executes the action chosen by the RL algorithm.
+    count_up_action_counter()
+        Counts up the games taken action counter and controls the intial placement order.
+    get_state_space()
+        Returns the current state space
+    roll_dice()
+        Rolls the dices.
+    move_robber(action_ind,player_num)
+        Moves the robber to the tile with number action_ind
+    distribute_resources(number)
+        Distribute the resources according to the rules.
+    add_resource(resource_type,player_num)
+        Adds a resource of resource_type to the stack of cards of player player_num.
+    check_resource_available_on_pile(resource_type)
+        Checks if a certain resource type is still available to be drawn by a player.
+    place_settlement(crossing_index,player_num)
+        Places a settlement at the crossing index position.
+    distribute_resources_second_settlement(crossing_index,player_num)
+        Distributes resources of second settlement according to the rules.
+    place_road(road_index,player_num)
+        Places a road on the given road index.
+    place_city(crossing_index,player_num)
+        Places a city on the given crossing index.
+    rob_player(self,robbed_player_index,player_num)
+        Takes a random card from player robbed_player_index and passes it to player player_num.
+    get_possible_actions_build_settlement(player_num)
+        Returns all locations where settlement can be placed by the given player.
+    get_possible_actions_build_road(self,player_num)
+        Returns a vector of 0's and 1's with 1's on indices where roads can be placed.
+    check_resources_available(player_num,buying_good)
+        Check availability of resources for the specific buying good.
+    pay(player_num,buying_good)
+        Reduces the cards of others player by the amount needed for the resources.
+    get_possible_actions_build_city(player_num)
+        Returns all locations where cities can be placed by the given player.
+    set_robber_position(tile_number)
+        Puts the robber on the specified tile.
+    get_possible_action_move_robber(player_num):
+        Returns all locations where the robber can be placed.
+    get_robber_state()
+        Returns the location of the robber in state representation.
+    rob_person(player_num)
+        Return list of players possible to rob resource from
+    get_possible_actions_rob_player(player_num)
+        Return list of players possible to rob resource from.
+    get_possible_actions_trade_bank(player_num)
+        Return list of possible trades to be done with the bank.
+    get_possible_actions_trade_3vs1(player_num)
+        Return list of possible trades to be done via 3vs1 trade.
+    create_possible_trade_sets_3vs1()
+        Creates all possible sets of 3 vs 1 tradings.
+    has_3vs1_port(player_num)
+        Get information on whether the player has a settlement/city adjacent to a 3vs1 port.
+    has_2vs1_port(player_num)
+        Get information on whether the player has a settlement/city adjacent to a 2vs1 port.
+    get_possible_actions_trade_2vs1(player_num)
+        Return list of possible trades to be done with a port.
+    discard_resources()
+        Simple heuristic for discarding cards.
+    create_possible_actions_dictionary()
+        According to initialization of the game, only certain action spaces will be added to this dictionary.
+    trade_bank(action_index,player_num)
+        Executes the action trade with bank for a certain player and a certain action index.
+    trade_3vs1(action_index,player_num)
+        Executes the action trade 3vs1 for a certain player and a certain action index
+    trade_2vs1(action_index,player_num)
+        Executes the action trade 2vs1 for a certain player and a certain action index
+    get_victory_points()
+        Calculates the current victory points for each player
     """
 
 
@@ -179,12 +256,22 @@ class Game:
 			return np.array([1])
 
 
-
-# returns nextState,reward and whether the game is finished
-	# General function which should be implemented at the end.
 	def step(self,action):
+		"""
+        Make a game step by taking the action.
 
-		# Make state transition
+        Returns the resulting state space, the reward, a game_finished flag and the 
+        label describing the action which was taken.
+        
+        :param action:
+        	action index
+        :returns:
+        	resulting state space (np.array),
+            reward (float),
+            possible actions in the next turn (np.array),
+            game finished flag (0 or 1),
+            action label (string)
+        """
 
 		reward, game_finished,clabel = self.take_action(action,self.current_player)
 
@@ -234,9 +321,7 @@ class Game:
 			if chosen_action_ind < val:
 				chosen_action_array_label = key # eg 'build_city'
 				action_ind = chosen_action_ind-last_val
-				# Thi calls the action_function with label chosen_action_array_label
 				self.action_array_names_dic[chosen_action_array_label][1](action_ind,player_num)
-				#print('Player : '+str(player_num)+' , Action : '+chosen_action_array_label+' Index : '+str(action_ind))
 				break
 			else:
 				last_val = val
@@ -250,17 +335,17 @@ class Game:
 			for i in range(5):
 				if self.check_resource_available_on_pile(i) == False:
 					finished = 1
-			"""
+
 			if finished:
 				max_cards = np.max(np.sum(self.cards,axis=1))
 				if max_cards == np.sum(self.cards,axis=1)[player_num-1]:
 					return 1,1,' '
 				else:
-					return -1,1,' '
+					return 0,1,' '
 			else:
 				return 0,0,' '
-			"""
-			return np.sum(self.cards,axis=1)[player_num-1]/(0.001+np.sum(self.cards)),finished,' '
+
+			#return np.sum(self.cards,axis=1)[player_num-1]/(0.001+np.sum(self.cards)),finished,' '
 
 		if np.any(self.get_victory_points() >= self.needed_victory_points):
 			game_finished = 1
@@ -300,6 +385,15 @@ class Game:
 		self.action_counter += 1
 
 	def get_state_space(self):
+		"""
+        Returns the current state space
+
+        Iterates through all subsets of the state space and concatenates their 
+        specific state space representation
+        
+        :returns:
+        	numpy array representing the current game state (1's and 0's).
+        """
 		counter = 0
 		state_array = []
 		for state_name,function_ref in self.state_array_dic.items():
@@ -348,14 +442,12 @@ class Game:
 
 
 
-
 	def distribute_resources(self,number):
 		"""
 		Distribute the resources according to the rules.
 
-		:param
-			number:
-				Number rolled by the dices.
+		:param number:
+			Number rolled by the dices.
 		"""
 		crossings = self.crossings.get_crossings()
 		buildings = self.crossings.get_building_state()
@@ -389,10 +481,6 @@ class Game:
 				Resource_type to be added.
 			player_num:
 				Player the resource is added to.
-
-		:return:
-			bool
-				True if the resource is available, False otherwise.
 		"""
 		if not self.check_resource_available_on_pile(resource_type):
 			return
@@ -404,7 +492,6 @@ class Game:
 
 		:param resource_type:
 			Resource_type to be checked.
-
 		:return:
 			bool
 				True if the resource is available, False otherwise.
@@ -414,6 +501,18 @@ class Game:
 		return True
 
 	def place_settlement(self,crossing_index,player_num):
+		"""
+		Places a settlement at the crossing index position.
+        
+        In the initial phase, placing the settlement is for free.
+        The resources of the tile close to the second settlement are distributed
+        according to the rules.
+
+		:param crossing_index:
+			Resource_type to be checked.
+        :param player_num:
+            Player number
+		"""
 		if self.action_counter >= 16:
 			self.pay(player_num,buying_good='Settlement')
 		elif self.action_counter >= 7: # second settlement placed
@@ -423,18 +522,42 @@ class Game:
 		pass
 
 	def distribute_resources_second_settlement(self,crossing_index,player_num):
+		"""
+		Distributes resources of second settlement according to the rules.
+
+		:param crossing_index:
+			Resource_type to be checked.
+        :param player_num:
+            Player number
+		"""
 		crossings = self.crossings.get_crossings()
 		for tile in crossings[crossing_index][1]:
 			if tile[1]!=7:
 				self.add_resource(tile[0],player_num-1)
 
 	def place_road(self,road_index,player_num):
+		"""
+		Places a road on the given road index.
+
+		:param road_index:
+			Index of the road.
+        :param player_num:
+            Player number
+		"""
 		if self.action_counter >= 16:
 			self.pay(player_num,buying_good='Road')
 		self.roads.place_road(road_index,player_num)
 		pass
 
 	def place_city(self,crossing_index,player_num):
+		"""
+		Places a city on the given crossing index.
+
+		:param road_index:
+			Index of the crossing.
+        :param player_num:
+            Player number
+		"""
 		self.pay(player_num,buying_good='City')
 		self.crossings.place_city(crossing_index,player_num)
 		pass
@@ -445,11 +568,9 @@ class Game:
 
 		:param robbed_player_index:
             Player to be robbed.
-
         :param player_num:
             Number of the player.
         """
-
 		# As get_action_rob_player swaps current players position with the first player,
 		# it is reversed here
 		if robbed_player_index == player_num-1:
@@ -539,7 +660,6 @@ class Game:
 
 					return final_arr
 
-			print('probably happening here')
 			return
 
 
@@ -825,6 +945,14 @@ class Game:
 		self.trade_3vs1_list = [grain_3vs1,wool_3vs1,ore_3vs1,brick_3vs1,wood_3vs1]
 
 	def has_3vs1_port(self,player_num):
+		"""
+        Get information on whether the player has a settlement/city adjacent to a 3vs1 port.
+
+        :param player_num:
+            Number of the player.
+        :return arr :
+        	Array of length 5 (resource types) with a 1 indicating that the player has a 3vs1 port.
+        """
 		building_state =self.crossings.get_building_state()*(self.crossings.get_building_state()<9)
 		settlement_state = (building_state==(player_num))+(building_state==(player_num+4))
 

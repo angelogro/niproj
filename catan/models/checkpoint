@@ -1,2 +1,2 @@
-model_checkpoint_path: "/media/angelo/Daten/10_TU_Berlin/Module/NIProject/Structured/NI-Project---RL---Catan/catan/models/2019-06-27"
-all_model_checkpoint_paths: "/media/angelo/Daten/10_TU_Berlin/Module/NIProject/Structured/NI-Project---RL---Catan/catan/models/2019-06-27"
+model_checkpoint_path: "C:\\Users\\agross\\Documents\\NI_comment\\niproj\\catan/models/2019-07-02"
+all_model_checkpoint_paths: "C:\\Users\\agross\\Documents\\NI_comment\\niproj\\catan/models/2019-07-02"

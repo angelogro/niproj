@@ -9,7 +9,105 @@ from game.game import Game
 from agent.rl import DeepQNetwork
 
 class TrainCatan:
+    """
+    A class describing a Training Session of a Catan Game.
 
+    ...
+
+    Attributes
+    ----------
+    plot_interval : int
+        plotting resolution in number of games
+    show_cards_statistic : bool
+        whether the statistics are plotted
+    action_space : str
+        action space defined in Game class
+    output_graph : bool
+        whether tensorflow data shall be gathered locally
+    position_training_instances : tuple(0/1)
+    	1 if the player in this position shall participate as training instance
+    random_shuffle_training_players_ : bool
+        whether different players shall participate in training
+    needed_victory_points : int
+        amount of victory points to finish the game (see Game class)
+    reward : str
+        reward used during trainint (see Game class)
+    learning_rate : float
+        initial learning rate
+    learning_rate_decay_factor : float
+        exponential decay factor of the learning rate
+    learning_rate_start_decay : int
+        amount of games after which the learning rate starts decaying
+    reward_decay : float
+        reward decay factor (gamma, see DeepQNetwork class)
+    e_greedy : float
+        maximum epsilon (see DeepQNetwork class, currently not used)
+    replace_target_iter : int
+        amount of network updates performed before replacing the target network by the eval network
+    memory_size : int
+        amount of state transitions (s,a,r,s') which will maximally be stored in RAM
+    num_games : int
+        amount of games played in the training session
+    final_epsilon : float
+        maximum epsilon (see DeepQNetwork class, currently not used)
+    epsilon_increase : int
+        amount of games after which epsilon starts increasing (currently not used)
+    softmax_choice : bool
+        whether the taken action shall be chosen according to the softmax values of the q values
+    list_num_neurons : tuple(int,int...)
+        dqn architecture definition, each integer creates a layer with the corresponding amount of neurons (see DeepQNetwork class)
+    batch_size : int
+        batch size used for weight updates (see DeepQNetwork class)
+    training_players : np.array(int,...)
+        list of the player numbers particiopating in training
+    state_space_buffer : list(states)
+        list of the last visited state by each player participating in training
+    action_buffer : list(int)
+        list of the last taken action index by each player participating in training
+    reward_buffer : list(float)
+        list of the last obtained reward by each player participating in training
+    sigmoid_001_099_borders : tuple(int,int)
+        amount of games played so that the sigmoidal (epsilon) function crosses 0.01 / 0.99 respectively
+    autosave : bool
+        whether the dqn model shall be saved automatically when the average win reate reaches a new maximum
+    random_init : bool
+        whether the board in initialized randomly (see Game class)
+    verbose : bool
+        whether text output shall be generated to visualize some parts of the training statistics
+    print_episodes : bool
+        whether the current amount of played games shall be printed to a file (needed for Distributed Instances Training)
+    victories : list(int)
+        list of player numbers who won a game
+    one_of_training_instances_wins : list(binary)
+        1 if the game was won by a training player, 0 otherwise
+    cards : list(int)
+        list of player numbers with most cards in the corresponding game
+    epsilons : list(float)
+        list of epsilon values for each game number
+    learning_rates : list(float)
+        list of learning rate values for each game number
+        
+    
+    Methods
+    -------
+    save_hyperparameters(filename)
+        Counts the player number up by one and rolls the dices
+    load_hyperparameters(filename)
+        Loads the hyperparameters of the TrainCatan instance 'hyperparameters\filename'.
+    init_taken_action_storage()
+        Initializes lists which are used for counting the actions each player took during training.
+    add_action_to_storage(clabel,player)
+        Adds an action to a players action storage
+    print_stored_actions()
+        Prints the actions stored for each player
+    random_shuffle_training_players()
+        Returns an array with a random number between 0 and 3
+    start_training(training = True)
+        Starts the current training session.
+    gather_statistics(env,iteration_counter,training,episode)
+        Prints and stores the statistics after plot_interval has been reached
+        
+    """
     def __init__(self,plot_interval=100,action_space='buildings_only',position_training_instances = (1,0,0,0),
                  needed_victory_points = 3,reward = 'victory_only',
                  learning_rate=1,
@@ -64,7 +162,6 @@ class TrainCatan:
         self.autosave = autosave
         
         self.random_init = random_init
-        self.statistics = []
         self.victories = []
         self.one_of_training_instances_wins = []
         self.cards = []
@@ -77,6 +174,15 @@ class TrainCatan:
 
 
     def save_hyperparameters(self,filename):
+        """
+        Saves the hyperparameters of this TrainCatan instance.
+
+        The RL model is NOT saved but saved separately.
+        The class is written to file with all members.
+
+        :param filename:
+        	filename under which the hyperparameters are saved
+        """
         del(self.RL)
         if not os.path.exists('hyperparameters'):
             os.makedirs('hyperparameters')
@@ -88,12 +194,27 @@ class TrainCatan:
 
 
     def load_hyperparameters(self,filename):
+        """
+        Loads the hyperparameters of the TrainCatan instance 'hyperparameters\filename'.
+
+        The RL model is NOT loaded.
+        All members of the class are loaded from the file.
+
+        :param filename:
+        	filename from which to load the hyperparameters.
+        :returns:
+            TrainCatan Instance
+        """
         if not os.path.exists('hyperparameters/'+filename):
             return
         f = open('hyperparameters/'+filename+'/'+filename, 'rb')
         return pickle.load(f)
 
     def init_taken_action_storage(self):
+        """
+        Initializes lists which are used for counting the actions each player took during training.
+
+        """
         self.donothing = [0,0,0,0]
         self.trade4vs1 = [0,0,0,0]
         self.buildroad = [0,0,0,0]
@@ -103,6 +224,15 @@ class TrainCatan:
         self.trade2vs1 = [0,0,0,0]
 
     def add_action_to_storage(self,clabel,player):
+        """
+        Adds an action to a players action storage
+
+        :param clabel:
+        	label of the action taken
+        :param player:
+            player number
+
+        """
         if clabel == 'build_road':
             self.buildroad[player]+=1
         elif clabel == 'build_settlement':
@@ -119,6 +249,10 @@ class TrainCatan:
             self.donothing[player]+=1
 
     def print_stored_actions(self):
+        """
+        Prints the actions stored for each player
+
+        """
         print('Do Nothing: '+str(self.donothing))
         print('Trade4vs1: '+str(self.trade4vs1))
         print('Trade3vs1: '+str(self.trade3vs1))
@@ -128,6 +262,10 @@ class TrainCatan:
         print('BuildCity: '+str(self.buildcity))
     
     def random_shuffle_training_players(self):
+        """
+        Returns an array with a random number between 0 and 3
+
+        """
         # Returns the binary representation of the training players
         # DID NOT WORK TOO WELL rand_num = np.random.randint(15)+1
         # DID NOT WORK TOO WELL return np.where(np.unpackbits(np.array(rand_num, dtype=np.uint8))[-4:]==1)[0]
@@ -137,6 +275,18 @@ class TrainCatan:
          
     
     def start_training(self,training = True):
+        """
+        Starts the current training session.
+
+        Initializes the plot and records and plots all data gathered during
+        training. Manages the learning rate and epsilon increases.
+        Manages the interface to the DQN model by storing transitions taken in the games
+        and by obtaining the taken actions from the model.
+
+        :param training:
+        	Indicates whether a model shall be trained. If false the current RL model
+            will be used playing games with an epsilon value of 1.
+        """
         self.init_taken_action_storage()
         self.init_online_plot()
         self.init_epsilon_function()
@@ -144,6 +294,7 @@ class TrainCatan:
         for episode in range(self.num_games):
             # initial observation, get state space
 
+            self.env = Game(random_init=self.random_init,action_space=self.action_space,needed_victory_points=self.needed_victory_points,reward=self.reward)
             env = Game(random_init=self.random_init,action_space=self.action_space,needed_victory_points=self.needed_victory_points,reward=self.reward)
             
             state_space = env.get_state_space()
@@ -155,7 +306,6 @@ class TrainCatan:
             self.reward_buffer=[0,0,0,0]
             self.done_buffer=[None,None,None,None]
             
-            done = 0
             while True:
                 # fresh env
                 # env.render()
@@ -217,6 +367,18 @@ class TrainCatan:
         self.print_stored_actions()
 
     def gather_statistics(self, env,iteration_counter,training,episode):
+        """
+        Prints and stores the statistics after plot_interval has been reached
+
+        :param env:
+        	current Game instance.
+        :param iteration_counter:
+            current move number taken by all players across game numbers
+        :param training:
+            whether the DQN model shall be trained
+        :param episode:
+            current game number
+        """
         if self.verbose:
             print(self.reward_buffer)
             print('Game '+ str(episode)+' finished after ' + str(iteration_counter)+' iterations.####################################################')
@@ -230,10 +392,12 @@ class TrainCatan:
         self.cards.append(np.argmax(np.sum(env.cards,axis=1)))
         self.victories.append(np.argmax(env.get_victory_points()))
         #self.one_of_training_instances_wins.append(np.sum(np.array(self.reward_buffer))/len(self.training_players))
-        self.one_of_training_instances_wins.append(np.where(self.victories[-1]==self.training_players[0],1,0))
+        if self.reward == 'cards':
+            self.one_of_training_instances_wins.append(np.argmax(np.sum(env.cards,axis=1))==self.training_players[0])
+        else:
+            self.one_of_training_instances_wins.append(np.where(self.victories[-1]==self.training_players[0],1,0))
         self.epsilons.append(self.RL.epsilon)
         self.learning_rates.append(self.RL.lr)
-        self.statistics.append(iteration_counter)
 
     def play_game(self,position_training_instances = (1,0,0,0),epsilon=1.0):
         if not hasattr(self,'RL'):
