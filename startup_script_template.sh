@@ -31,7 +31,8 @@ cd catan
 
 sudo apt install git -y
 
-sudo git clone -b TestingWithMultiplePlayerTraining --single-branch https://github.com/angelogro/NI-Project---RL---Catan.git
+#sudo git clone -b TestingWithMultiplePlayerTraining --single-branch https://github.com/angelogro/NI-Project---RL---Catan.git
+sudo git clone https://github.com/angelogro/niproj.git
 
 sudo chmod -R 777 *
 
